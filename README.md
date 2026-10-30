@@ -82,3 +82,7 @@ The badge in the top-left corner shows which device is in use.
 - [PySceneDetect](https://www.scenedetect.com/)
 - [Depth Anything V2](https://github.com/DepthAnything/Depth-Anything-V2) and the ONNX exports by [fabio-sim/Depth-Anything-ONNX](https://github.com/fabio-sim/Depth-Anything-ONNX)
 - [three.js](https://threejs.org/), [mp4-muxer](https://github.com/Vanilagy/mp4-muxer), [ONNX Runtime](https://onnxruntime.ai/), [OpenCV](https://opencv.org/)
+
+## License
+
+MIT. See [LICENSE](LICENSE). The depth models and libraries listed above keep their own licenses.

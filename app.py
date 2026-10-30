@@ -13,21 +13,29 @@ from flask import Flask, Response, abort, jsonify, request, send_file
 
 import depth
 
+# ---------- folders ----------
+# work/   uploaded videos, scene thumbnails and temporary point clouds
+# output/ rendered MP4s
 HERE = os.path.dirname(os.path.abspath(__file__))
 WORK = os.path.join(HERE, "work")
 OUT = os.path.join(HERE, "output")
 for d in (WORK, OUT, os.path.join(WORK, "videos"), os.path.join(WORK, "thumbs"), os.path.join(WORK, "clouds")):
     os.makedirs(d, exist_ok=True)
 
+# Assumed vertical field of view of a phone camera (must match the interface).
 VFOV = np.deg2rad(64.0)
 TANY = float(np.tan(VFOV / 2))
 
 app = Flask(__name__, static_folder=os.path.join(HERE, "static"), static_url_path="/static")
+# In-memory state. Restarting the app clears it (files in work/ stay on disk).
 videos = {}   # id -> {path, name, fps, frames, w, h, dur}
 jobs = {}     # id -> {progress, msg, done, result, error}
 gpu_lock = threading.Lock()
 
 
+# Long tasks (scene detection, depth, joining) run in a background thread as a 'job'.
+# The interface polls /api/job/<id> to read progress, the status message and the result.
+# fn receives a report(msg, progress) callback as its first argument.
 def new_job(fn, *args):
     jid = uuid.uuid4().hex[:10]
     jobs[jid] = {"progress": 0.0, "msg": "", "done": False, "result": None, "error": None}
@@ -66,6 +74,7 @@ def job(jid):
     return jsonify(j)
 
 
+# Basic video info read with OpenCV.
 def probe(path):
     cap = cv2.VideoCapture(path)
     if not cap.isOpened():
@@ -77,6 +86,7 @@ def probe(path):
     return dict(fps=fps, frames=n, w=w, h=h, dur=n / fps if fps else 0)
 
 
+# The browser sends the raw file as the request body; it is streamed to work/videos/.
 @app.post("/api/upload")
 def upload():
     name = request.headers.get("x-filename", "video.mp4")
@@ -99,6 +109,10 @@ def upload():
 
 
 # ---------- scenes (PySceneDetect) ----------
+# Splits a video into scenes with PySceneDetect.
+#  'content'  : cut when the frame-to-frame HSV difference exceeds the threshold (hard cuts)
+#  'adaptive' : compares each frame's score with its neighbours, better for moving cameras
+# Detection runs in 5-second chunks only so progress can be reported.
 def detect_scenes(report, vid, detector, threshold, min_len):
     from scenedetect import open_video, SceneManager, ContentDetector, AdaptiveDetector
     v = videos[vid]
@@ -118,6 +132,7 @@ def detect_scenes(report, vid, detector, threshold, min_len):
         report(f"Looking for cuts · {pos:.0f}/{dur:.0f} s", 0.9 * pos / max(dur, 1e-6))
     lst = sm.get_scene_list(start_in_scene=True)
     scenes = [(a.get_seconds(), b.get_seconds()) for a, b in lst] or [(0.0, dur)]
+    # One thumbnail per scene, taken from its middle frame.
     cap = cv2.VideoCapture(v["path"])
     out = []
     for i, (a, b) in enumerate(scenes):
@@ -149,6 +164,18 @@ def thumb(vid, i):
 
 
 # ---------- point cloud for one scene ----------
+# Builds the spacetime point cloud for one scene.
+#
+# For each of F evenly spaced frames:
+#   1. read the frame and shrink it to wdef × hp pixels (one point per pixel)
+#   2. estimate the camera turn since the previous frame with phase correlation;
+#      the walker moves one unit forward along the new heading
+#   3. run the depth model and normalize disparity per frame with robust percentiles
+#   4. keep a random subset of pixels so the total stays under maxp million points
+#
+# Output file (work/clouds/<key>.bin), read by the interface:
+#   uint32 header length | JSON header | padding to 4 bytes | float32 xyz[N] | uint8 rgb[N]
+# The header lists every frame's point count, pose (x, z, yaw) and normalized time tn.
 def process_scene(report, vid, start, end, frames, wdef, maxp, model, grid):
     v = videos[vid]
     with gpu_lock:
@@ -158,6 +185,7 @@ def process_scene(report, vid, start, end, frames, wdef, maxp, model, grid):
     wp, hp = int(wdef), max(2, int(round(wdef * vh / vw)))
     length = max(0.05, end - start)
     F = int(max(2, min(frames, int(length * fps))))
+    # Probability of keeping each pixel so the scene stays under the particle budget.
     keep_p = min(1.0, maxp * 1e6 / (F * wp * hp))
     hfov = 2 * np.arctan(TANY * aspect)
     rng = np.random.default_rng()
@@ -176,6 +204,7 @@ def process_scene(report, vid, start, end, frames, wdef, maxp, model, grid):
         rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
         small = cv2.resize(rgb, (wp, hp), interpolation=cv2.INTER_AREA)
         g = cv2.cvtColor(cv2.resize(rgb, (128, max(8, int(128 * vh / vw))), interpolation=cv2.INTER_AREA), cv2.COLOR_RGB2GRAY).astype(np.float32)
+        # Image shift to the right = camera turned left = heading increases.
         if prev is not None:
             (dx, _dy), _r = cv2.phaseCorrelate(prev, g, cv2.createHanningWindow(g.shape[::-1], cv2.CV_32F))
             yaw += dx / g.shape[1] * hfov
@@ -185,10 +214,12 @@ def process_scene(report, vid, start, end, frames, wdef, maxp, model, grid):
         with gpu_lock:
             d = dm.infer(rgb)
         d = cv2.resize(d, (wp, hp), interpolation=cv2.INTER_LINEAR)
+        # Robust 0..1 normalization (ignores the extreme 2% / 1.5%).
         lo, hi = np.percentile(d, 2), np.percentile(d, 98.5)
         dn = np.clip((d - lo) / max(1e-6, hi - lo), 0, 1)
         mask = rng.random((hp, wp)) < keep_p if keep_p < 1 else np.ones((hp, wp), bool)
         n = int(mask.sum())
+        # Jitter inside each pixel avoids a visible grid. x is scaled by the aspect ratio.
         u = ((ii[mask] + rng.random(n)) / wp * 2 - 1) * aspect
         vv = 1 - (jj[mask] + rng.random(n)) / hp * 2
         pos = np.stack([u, vv, dn[mask]], 1).astype(np.float32)
@@ -233,12 +264,14 @@ def cloud(key):
 
 
 # ---------- save and join ----------
+# Keeps only safe characters so a name can never escape the output folder.
 def safe_name(n):
     n = os.path.basename(n or "video.mp4")
     keep = "".join(c if c.isalnum() or c in "-_." else "_" for c in n)
     return keep or "video.mp4"
 
 
+# Receives a rendered MP4 from the interface and writes it to output/.
 @app.post("/api/save")
 def save():
     name = safe_name(request.args.get("name"))
@@ -254,6 +287,8 @@ def save():
     return jsonify(path=path)
 
 
+# Joins saved videos with ffmpeg (bundled by imageio-ffmpeg).
+# First tries a lossless stream copy; if the clips differ in size or settings, re-encodes them.
 def concat(report, names):
     import imageio_ffmpeg
     ff = imageio_ffmpeg.get_ffmpeg_exe()
@@ -283,6 +318,7 @@ def concat_ep():
     return jsonify(job=new_job(concat, request.get_json().get("names", [])))
 
 
+# ---------- entry point ----------
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--port", type=int, default=8765)
