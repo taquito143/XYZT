@@ -1,0 +1,1217 @@
+<title>XYZT</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: full-screen canvas (white paper) + bottom sheet with tabs. One deliberate light look. */
+:root{
+  --paper:#f5f5f3;
+  --ink:#1c201e;
+  --ink-2:#5b625e;
+  --line:#d9dbd6;
+  --moss:#56653f;
+  --rust:#9a4a2c;
+  --glass:rgba(250,250,248,.9);
+  --f-display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  color-scheme:light;
+}
+html,body{height:100%;overflow:hidden}
+body{background:var(--paper);color:var(--ink);font-family:var(--f-mono);font-size:13px;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+#gl{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;background:var(--paper)}
+.top{position:fixed;top:0;left:0;right:0;padding-top:calc(env(safe-area-inset-top,0px) + 12px);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;justify-content:space-between;align-items:flex-start;gap:12px;pointer-events:none}
+.brand{font-family:var(--f-display);font-weight:700;font-size:22px;letter-spacing:-.02em;line-height:1}
+.brand small{display:block;font-family:var(--f-mono);font-weight:400;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2);margin-top:6px;max-width:42vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mode{display:inline-block;font-family:var(--f-mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--line);border-radius:999px;padding:2px 7px;margin-top:6px;color:var(--ink-2);background:var(--glass)}
+.status{pointer-events:auto;max-width:58%;background:var(--glass);border:1px solid var(--line);border-radius:14px;padding:7px 12px;font-size:11px;line-height:1.4;color:var(--ink);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);text-align:right}
+.status b{font-weight:500;color:var(--moss)}
+.bar{height:2px;background:var(--line);border-radius:2px;margin-top:5px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--ink);transition:width .2s}
+
+.sheet{position:fixed;left:0;right:0;bottom:0;padding-bottom:calc(env(safe-area-inset-bottom,0px) + 12px);padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px));pointer-events:none}
+.card{pointer-events:auto;max-width:600px;margin:0 auto;background:var(--glass);border:1px solid var(--line);border-radius:18px;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 10px 40px rgba(28,32,30,.08);overflow:hidden}
+.row{display:flex;gap:8px;padding:10px;align-items:center;flex-wrap:wrap}
+button{font:inherit;color:inherit;border:1px solid var(--line);background:var(--paper);border-radius:12px;padding:9px 12px;min-height:40px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--moss);outline-offset:2px}
+button.primary{background:var(--ink);color:var(--paper);border-color:var(--ink);font-weight:500}
+.row>button.primary{flex:1}
+button.icon{width:40px;padding:0;flex:none}
+button.small{min-height:32px;padding:5px 10px;font-size:12px;border-radius:10px}
+button.wide{width:100%}
+button[disabled]{opacity:.45;cursor:default}
+.tabs{display:flex;gap:2px;padding:0 8px;border-top:1px solid var(--line);overflow-x:auto;scrollbar-width:none}
+.tabs button{border:0;background:none;border-radius:0;min-height:38px;padding:8px 10px;font-size:11.5px;letter-spacing:.04em;color:var(--ink-2);border-bottom:2px solid transparent;flex:none}
+.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--ink)}
+.panel{border-top:1px solid var(--line);max-height:min(54vh,480px);overflow-y:auto;padding:4px 14px 14px;-webkit-overflow-scrolling:touch}
+.group{padding-top:10px}
+.label{font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-2);margin:6px 0 8px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips button{min-height:34px;padding:6px 11px;border-radius:999px;font-size:12px}
+.chips button[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.sl{display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:center;margin:9px 0}
+.sl label{font-size:12px}
+.sl output{font-size:11px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.sl input{grid-column:1/-1;width:100%;accent-color:var(--ink);height:26px;margin:0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 16px}
+@media (max-width:420px){.grid2{grid-template-columns:1fr}}
+.note{font-size:11px;line-height:1.5;color:var(--ink-2);margin:10px 0 0}
+select,input[type="number"]{font:inherit;border:1px solid var(--line);background:var(--paper);border-radius:10px;padding:7px 8px;min-height:36px;color:var(--ink);width:100%}
+.pre{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:6px}
+.pre label{display:block;font-size:11px;color:var(--ink-2);margin-bottom:4px}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.btnrow>button{flex:1}
+
+/* escenas */
+.scenes{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:8px;margin-top:8px}
+.scene{position:relative;border:1px solid var(--line);border-radius:12px;background:var(--paper);overflow:hidden;display:flex;flex-direction:column;min-width:0}
+.scene[aria-current="true"]{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink)}
+.scene .th{display:block;width:100%;aspect-ratio:16/10;object-fit:cover;background:var(--line);border:0;padding:0;border-radius:0;min-height:0}
+.scene .meta{padding:6px 8px 8px;font-size:11px;line-height:1.4;display:flex;flex-direction:column;gap:2px}
+.scene .meta b{font-weight:500}
+.scene .meta span{color:var(--ink-2);font-variant-numeric:tabular-nums}
+.scene label.pick{position:absolute;top:6px;left:6px;background:var(--glass);border-radius:8px;padding:3px 5px;display:flex;align-items:center}
+.scene label.pick input{width:18px;height:18px;margin:0;accent-color:var(--ink)}
+.scene .st{position:absolute;top:6px;right:6px;font-size:10px;background:var(--glass);border-radius:999px;padding:2px 7px}
+.scene .st.ok{color:var(--moss)}
+.scene .acts{display:flex;gap:6px;padding:0 8px 8px}
+.scene .acts button{flex:1}
+.results{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.res{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:10px;padding:6px 8px;background:var(--paper);font-size:11.5px;min-width:0}
+.res span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* keyframes */
+.keys{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.key{display:grid;grid-template-columns:auto 86px 1fr;gap:8px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:6px 8px;background:var(--paper)}
+.key .kn{font-weight:500;font-size:12px;min-width:26px}
+.key .kb{display:flex;gap:4px;justify-content:flex-end;flex-wrap:wrap}
+.key input[type="number"]{min-height:32px;padding:4px 6px}
+.key[aria-current="true"]{border-color:var(--rust)}
+.empty{font-size:11.5px;color:var(--ink-2);border:1px dashed var(--line);border-radius:10px;padding:12px;line-height:1.5}
+.check{display:flex;gap:8px;align-items:center;font-size:12px;margin-top:10px}
+.check input{width:18px;height:18px;accent-color:var(--ink);margin:0}
+
+.vlab{position:fixed;pointer-events:none;border:1px solid var(--line);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2)}
+.vlab span{position:absolute;left:6px;top:4px;background:var(--glass);padding:1px 5px;border-radius:6px}
+.vlab span i{font-style:normal;font-weight:500}
+.ax-x{color:#c0392b}.ax-y{color:#3d8b37}.ax-z{color:#2e5fa8}
+.hint{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 132px);font-size:11px;color:var(--ink-2);pointer-events:none;transition:opacity .6s;text-align:center;width:calc(100% - 32px);max-width:420px;line-height:1.5}
+@media (prefers-reduced-motion:reduce){.bar i{transition:none}}
+body.split-h .sheet,body.split-h .top{padding-right:calc(var(--colw,0px) + 12px)}
+body.split-h .hint{left:calc(50% - var(--colw,0px)/2)}
+</style>
+
+<canvas id="gl" aria-label="Spacetime point cloud"></canvas>
+
+<div class="top">
+  <div class="brand">XYZT<small id="srcLabel">Demo: synthetic forest</small><span class="mode" id="modeBadge">Browser</span></div>
+  <div class="status" id="status" role="status">Starting…<div class="bar"><i></i></div></div>
+</div>
+
+<div class="vlab" id="labTop" hidden><span>Top · <i class="ax-x">X</i> / <i class="ax-z">Z</i></span></div>
+<div class="vlab" id="labSide" hidden><span>Side · <i class="ax-z">Z</i> / <i class="ax-y">Y</i></span></div>
+<div class="hint" id="hint">Drag to look around · two fingers or wheel to zoom and pan · double-tap to recenter</div>
+
+<div class="sheet">
+  <div class="card">
+    <div class="row">
+      <button class="primary" id="btnUpload" type="button">Open video</button>
+      <button class="icon" id="btnKey" type="button" aria-label="Add camera keyframe" title="Add keyframe">◆</button>
+      <button class="icon" id="btnSplit" type="button" aria-label="Split view" aria-pressed="false" title="Split view: 3D, top and side">▦</button>
+      <button class="icon" id="btnPlay" type="button" aria-label="Pause flight" title="Auto flight">❚❚</button>
+      <button class="icon" id="btnPanel" type="button" aria-label="Show panel" aria-expanded="false" title="Panel">⚙</button>
+    </div>
+    <div id="panelWrap" hidden>
+      <div class="tabs" role="tablist" id="tabs">
+        <button type="button" role="tab" data-tab="escenas" aria-selected="true">Scenes</button>
+        <button type="button" role="tab" data-tab="proceso" aria-selected="false">Process</button>
+        <button type="button" role="tab" data-tab="estilo" aria-selected="false">Style</button>
+        <button type="button" role="tab" data-tab="camara" aria-selected="false">Camera</button>
+        <button type="button" role="tab" data-tab="exportar" aria-selected="false">Export</button>
+      </div>
+      <div class="panel" id="panel">
+
+        <section data-sec="escenas">
+          <div class="group">
+            <div class="label">Scene detection</div>
+            <div class="pre">
+              <div><label for="selDet">Detector</label>
+                <select id="selDet"><option value="content" selected>Content (hard cuts)</option><option value="adaptive">Adaptive (moving camera)</option></select></div>
+              <div id="detFpsBox"><label for="selDetFps">Sampling</label>
+                <select id="selDetFps"><option value="2">2 per second · fast</option><option value="4" selected>4 per second</option><option value="8">8 per second</option><option value="12">12 per second · fine</option></select></div>
+            </div>
+            <div class="grid2" id="detSliders"></div>
+            <button type="button" class="wide" id="btnDetect" disabled>Detect scenes</button>
+          </div>
+          <div class="group">
+            <div class="label" id="scenesLabel">Scenes</div>
+            <div id="scenesEmpty" class="empty">Open a video and it gets split into scenes automatically. Then pick which ones to convert.</div>
+            <div class="btnrow" id="selRow" hidden>
+              <button type="button" class="small" id="btnAll">All</button>
+              <button type="button" class="small" id="btnNone">None</button>
+            </div>
+            <div class="scenes" id="sceneList"></div>
+            <button type="button" class="primary wide" id="btnBatch" hidden style="margin-top:10px">Process and export</button>
+            <button type="button" class="wide" id="btnStop" hidden style="margin-top:8px">Stop after this scene</button>
+          </div>
+          <div class="group" id="resultsBox" hidden>
+            <div class="label">Rendered videos</div>
+            <div class="results" id="results"></div>
+            <button type="button" class="wide" id="btnConcat" hidden style="margin-top:8px">Join all into one MP4</button>
+          </div>
+        </section>
+
+        <section data-sec="proceso" hidden>
+          <div class="group">
+            <div class="label">Per scene</div>
+            <div class="grid2" id="preSliders"></div>
+            <p class="note" id="preEst"></p>
+          </div>
+          <div class="group" id="deskModel" hidden>
+            <div class="label">Depth model</div>
+            <div class="pre">
+              <div><label for="selModel">Model</label>
+                <select id="selModel"><option value="vits" selected>Small · fast</option><option value="vitb">Base · better</option><option value="vitl">Large · best</option></select></div>
+              <div><label for="selDepthRes">Depth resolution</label>
+                <select id="selDepthRes"><option value="22">308 px</option><option value="28">392 px</option><option value="37" selected>518 px</option><option value="46">644 px</option><option value="55">770 px</option></select></div>
+            </div>
+          </div>
+          <button type="button" class="wide" id="btnRedo" disabled>Reprocess current scene</button>
+          <p class="note" id="procNote">On a phone each frame takes 1 to 4 seconds. The first run downloads about 37 MB (depth model).</p>
+        </section>
+
+        <section data-sec="estilo" hidden>
+          <div class="group">
+            <div class="label">Presets</div>
+            <div class="chips" id="presets">
+              <button type="button" data-p="real">Faithful</button>
+              <button type="button" data-p="estela">Long trail</button>
+              <button type="button" data-p="sueno">Dream</button>
+              <button type="button" data-p="apilado">Stacked</button>
+            </div>
+          </div>
+          <div class="group">
+            <div class="label">Time</div>
+            <div class="chips" id="modes">
+              <button type="button" data-m="0" aria-pressed="true">All time at once</button>
+              <button type="button" data-m="1" aria-pressed="false">Sweep</button>
+            </div>
+            <div class="grid2" id="sliders"></div>
+          </div>
+          <div class="group">
+            <div class="label">View</div>
+            <div class="grid2" id="viewSliders"></div>
+          </div>
+        </section>
+
+        <section data-sec="camara" hidden>
+          <div class="group">
+            <div class="label">Framing</div>
+            <div class="grid2" id="camSliders"></div>
+            <p class="note">Place the camera with touch, mouse or these sliders, then press ◆ to store a keyframe. The video travels through all keyframes in order along smooth curves.</p>
+          </div>
+          <div class="group">
+            <div class="label" id="keysLabel">Keyframes</div>
+            <div class="btnrow">
+              <button type="button" class="primary" id="btnKeyAdd">◆ Add keyframe</button>
+              <button type="button" id="btnKeyPlay" disabled>▶ Preview path</button>
+            </div>
+            <div class="keys" id="keyList"></div>
+            <div class="pre" style="margin-top:10px">
+              <div><label for="selEase">Motion between keyframes</label>
+                <select id="selEase"><option value="smooth" selected>Smooth curve</option><option value="ease">Smooth with ease in/out</option><option value="linear">Linear</option></select></div>
+              <div><label for="selKeyGap">Time step when adding</label>
+                <select id="selKeyGap"><option value="1">+1 s</option><option value="2" selected>+2 s</option><option value="3">+3 s</option><option value="5">+5 s</option></select></div>
+            </div>
+            <label class="check"><input type="checkbox" id="chkPath" checked> Show camera path</label>
+            <label class="check"><input type="checkbox" id="chkAxes" checked> Show <b class="ax-x">X</b> <b class="ax-y">Y</b> <b class="ax-z">Z</b> axes and ground grid</label>
+            <label class="check"><input type="checkbox" id="chkSplit"> Split view (3D · top · side)</label>
+            <p class="note">Guides (axes, grid, path and auxiliary views) are only shown here. They never appear in the MP4.</p>
+            <div class="btnrow"><button type="button" class="small" id="btnKeyClear" disabled>Delete all</button></div>
+          </div>
+        </section>
+
+        <section data-sec="exportar" hidden>
+          <div class="group">
+            <div class="label">Video</div>
+            <div class="pre">
+              <div><label for="selRes">Resolution</label>
+                <select id="selRes"><option value="480">480p</option><option value="720" selected>720p</option><option value="1080">1080p</option><option value="1440">1440p</option><option value="2160">4K (slow)</option></select></div>
+              <div><label for="selFmt">Format</label>
+                <select id="selFmt"><option value="v" selected>Vertical 9:16</option><option value="s">Square 1:1</option><option value="h">Horizontal 16:9</option><option value="p">Match screen</option></select></div>
+              <div><label for="selFps">Frames per second</label>
+                <select id="selFps"><option value="24">24</option><option value="30" selected>30</option><option value="60">60</option></select></div>
+              <div><label for="selMove">Camera motion</label>
+                <select id="selMove"><option value="fly" selected>Follow the walk</option><option value="keys">Camera keyframes</option><option value="orbit">Orbit around</option><option value="still">Still camera</option></select></div>
+              <div><label for="selDurMode">Duration</label>
+                <select id="selDurMode"><option value="fixed" selected>Fixed</option><option value="scene">Same as scene</option><option value="scene2">Scene × 2</option></select></div>
+            </div>
+            <div class="grid2" id="expSliders"></div>
+            <p class="note" id="durNote"></p>
+          </div>
+          <div class="btnrow">
+            <button type="button" class="primary" id="btnExport">Export MP4 of current view</button>
+          </div>
+          <div class="btnrow"><button type="button" id="btnSave" hidden>Save MP4</button></div>
+          <p class="note">Rendered frame by frame, so the result is smooth even on a slow machine. For several scenes use “Process and export” in the Scenes tab.</p>
+        </section>
+
+      </div>
+    </div>
+  </div>
+</div>
+<input type="file" id="file" accept="video/*" hidden>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(() => {
+const ORT_URL = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.wasm.min.js';
+const ORT_BASE = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/';
+const MUX_URL = 'https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.js';
+const MODEL_PARTS = ['depth-a.wasm','depth-b.wasm'];
+const MODEL_SIZE = 308;
+const VFOV = 64 * Math.PI/180;
+const TANY = Math.tan(VFOV/2);
+const ZNEAR = 1.0, ZFAR = 14.0, K = ZNEAR/ZFAR;
+
+const $ = id => document.getElementById(id);
+const statusEl = $('status');
+function setStatus(html, p){ statusEl.innerHTML = html + '<div class="bar"><i style="width:'+((p==null?0:p)*100)+'%"></i></div>'; }
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const fmtT = s => { s=Math.max(0,s); const m=Math.floor(s/60), r=s-m*60; return m+':'+(r<10?'0':'')+r.toFixed(1); };
+const esc = s => String(s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const store = { get(k,d){ try{ const v=localStorage.getItem('xyzt.'+k); return v?JSON.parse(v):d; }catch(_){ return d; } }, set(k,v){ try{ localStorage.setItem('xyzt.'+k, JSON.stringify(v)); }catch(_){} } };
+
+/* ---------- parameters ---------- */
+const P = { stretch:1.2, turn:1, cut:.05, size:3.2, opacity:.6, wash:.15, fog:.03, wave:0, rise:0, dust:.35, speed:.45, win:.25, mode:0 };
+const Q = { frames:20, def:112, maxp:1.5, keep:1, pxr:1, dur:10, detThr:27, detMin:1.0 };
+const SL = [
+  ['stretch','Time trail',0,5,.05],['turn','Follow turns',0,1.5,.05],['cut','Background cut',0,.7,.01],
+  ['size','Stroke size',.5,7,.1],['opacity','Ink',.04,1,.01],['wash','Wash',0,.85,.01],
+  ['fog','Fog',0,.25,.005],['wave','Wave',0,1.5,.01],['rise','Vertical drift',-3,3,.05],
+  ['dust','Dust',0,1,.01],['speed','Flight speed',0,2,.01],['win','Sweep window',.03,1,.01],
+];
+const PRESETS = {
+  real:{stretch:1.0,turn:1,cut:.05,size:3,opacity:.65,wash:.1,fog:.03,wave:0,rise:0,dust:.2,mode:0},
+  estela:{stretch:3.2,turn:1.2,cut:.05,size:3.4,opacity:.42,wash:.25,fog:.03,wave:0,rise:0,dust:.45,mode:0},
+  sueno:{stretch:1.8,turn:.6,cut:.08,size:4,opacity:.32,wash:.4,fog:.07,wave:.55,rise:.8,dust:.6,mode:1,win:.35},
+  apilado:{stretch:0,turn:0,cut:.04,size:2.6,opacity:.25,wash:.2,fog:.02,wave:0,rise:0,dust:.15,mode:0},
+};
+function mkSliders(box, list, obj, onChange, idp){
+  list.forEach(([k,lab,mn,mx,st,fmt]) => {
+    const d = document.createElement('div'); d.className='sl';
+    d.innerHTML = `<label for="${idp}_${k}">${lab}</label><output id="${idp}o_${k}"></output><input type="range" id="${idp}_${k}" min="${mn}" max="${mx}" step="${st}" value="${obj[k]}">`;
+    box.appendChild(d);
+    const inp = d.querySelector('input'), out = d.querySelector('output');
+    const f = fmt || (v=>(+v).toFixed(2));
+    inp.addEventListener('input', () => { obj[k] = +inp.value; out.textContent = f(obj[k]); onChange && onChange(k); });
+    out.textContent = f(obj[k]);
+    inp._sync = () => { inp.value = obj[k]; out.textContent = f(obj[k]); };
+  });
+}
+mkSliders($('sliders'), SL, P, null, 's');
+function syncStyle(){ SL.forEach(([k])=>{ const i=$('s_'+k); i && i._sync(); }); document.querySelectorAll('#modes button').forEach(b=>b.setAttribute('aria-pressed', String(+b.dataset.m===P.mode))); }
+$('presets').addEventListener('click', e => { const b=e.target.closest('button'); if(!b) return; Object.assign(P, PRESETS[b.dataset.p]); syncStyle(); });
+$('modes').addEventListener('click', e => { const b=e.target.closest('button'); if(!b) return; P.mode=+b.dataset.m; syncStyle(); });
+mkSliders($('detSliders'), [
+  ['detThr','Cut threshold',5,80,1,v=>v+''],
+  ['detMin','Minimum scene length',.3,10,.1,v=>v.toFixed(1)+' s'],
+], Q, null, 'q');
+mkSliders($('preSliders'), [
+  ['frames','Frames per scene',4,120,1,v=>v+''],
+  ['def','Detail (px per frame)',48,256,8,v=>v+' px'],
+  ['maxp','Max particles',.1,5,.1,v=>v.toFixed(1)+' M'],
+], Q, ()=>updateEstimate(), 'q');
+mkSliders($('viewSliders'), [
+  ['keep','Visible particles',.05,1,.01,v=>Math.round(v*100)+' %'],
+  ['pxr','Screen resolution',.5,2,.05,v=>v.toFixed(2)+'×'],
+], Q, k=>{ if(k==='pxr') resize(); }, 'q');
+mkSliders($('expSliders'), [['dur','Fixed duration',2,60,1,v=>v+' s']], Q, ()=>updateDurNote(), 'q');
+
+/* panel and tabs */
+function showPanel(open){ $('panelWrap').hidden=!open; $('btnPanel').setAttribute('aria-expanded', String(open)); }
+$('btnPanel').addEventListener('click', () => showPanel($('panelWrap').hidden));
+function showTab(name){
+  document.querySelectorAll('#tabs button').forEach(b=>b.setAttribute('aria-selected', String(b.dataset.tab===name)));
+  document.querySelectorAll('#panel section').forEach(s=>s.hidden = s.dataset.sec!==name);
+  $('panel').scrollTop = 0;
+}
+$('tabs').addEventListener('click', e => { const b=e.target.closest('button'); if(b) showTab(b.dataset.tab); });
+
+/* ---------- three ---------- */
+const canvas = $('gl');
+const renderer = new THREE.WebGLRenderer({canvas, antialias:false, alpha:false, preserveDrawingBuffer:true});
+renderer.setClearColor(0xf5f5f3, 1);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(62, 1, .02, 400);
+let dpr = 1;
+
+const uniforms = {
+  uKeep:{value:1}, uStretch:{value:1}, uTurn:{value:1}, uCut:{value:.16}, uSize:{value:2}, uScale:{value:400},
+  uOpacity:{value:.4}, uWash:{value:.2}, uFog:{value:.05}, uWave:{value:0}, uRise:{value:0}, uClock:{value:0},
+  uMode:{value:0}, uTime:{value:0}, uWin:{value:.25}, uPaper:{value:new THREE.Color(0xf5f5f3)}
+};
+const vs = `
+uniform float uStretch,uTurn,uCut,uSize,uScale,uFog,uWave,uRise,uClock,uMode,uTime,uWin,uOpacity,uKeep;
+attribute vec4 aPose;
+attribute float aRnd;
+attribute vec3 color;
+varying vec3 vCol; varying float vA;
+void main(){
+  float dn = position.z;
+  vec4 P = aPose;
+  float t = P.w;
+  float a = uOpacity;
+  if(aRnd > uKeep){ gl_Position=vec4(2.,2.,2.,1.); gl_PointSize=0.; vA=0.; return; }
+  if(uMode>.5){ a *= 1.0 - smoothstep(uWin*.5, uWin, abs(t-uTime)); }
+  if(dn < uCut || a < .004){ gl_Position=vec4(2.,2.,2.,1.); gl_PointSize=0.; vA=0.; return; }
+  float z = ${ZNEAR.toFixed(3)} / (dn*(1.0-${K.toFixed(5)}) + ${K.toFixed(5)});
+  vec3 loc = vec3(position.x*z*${TANY.toFixed(5)}, position.y*z*${TANY.toFixed(5)}, -z);
+  float yaw = P.z*uTurn; float c=cos(yaw), s=sin(yaw);
+  vec3 w = vec3(c*loc.x + s*loc.z, loc.y, -s*loc.x + c*loc.z);
+  w.xz += P.xy*uStretch;
+  w.y += sin(t*9.0 + uClock*.7 + w.x*.15)*uWave + (t-.5)*uRise*4.0;
+  w.x += cos(t*7.0 + uClock*.5)*uWave*.6;
+  vec4 mv = modelViewMatrix*vec4(w,1.0);
+  float d = -mv.z;
+  if(d < .03){ gl_Position=vec4(2.,2.,2.,1.); gl_PointSize=0.; vA=0.; return; }
+  gl_Position = projectionMatrix*mv;
+  gl_PointSize = clamp(uSize*uScale*.01/d, 1.0, 48.0);
+  a *= exp(-d*uFog*1.6);
+  vA = a; vCol = color;
+}`;
+const fs = `
+precision mediump float;
+uniform float uWash; uniform vec3 uPaper;
+varying vec3 vCol; varying float vA;
+void main(){
+  vec2 q = gl_PointCoord-.5; float r = length(q)*2.0;
+  float m = 1.0 - smoothstep(.35, 1.0, r);
+  if(m*vA < .003) discard;
+  gl_FragColor = vec4(mix(vCol, uPaper, uWash), m*vA);
+}`;
+const mat = new THREE.ShaderMaterial({uniforms, vertexShader:vs, fragmentShader:fs, transparent:true, depthWrite:false, depthTest:false});
+let geo = null, points = null, capacity = 0, count = 0, nFrames = 0;
+const poses = [];
+function allocate(n){
+  if(points){ scene.remove(points); geo.dispose(); }
+  capacity = n; count = 0;
+  geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n*3),3).setUsage(THREE.DynamicDrawUsage));
+  geo.setAttribute('color', new THREE.BufferAttribute(new Uint8Array(n*3),3,true).setUsage(THREE.DynamicDrawUsage));
+  geo.setAttribute('aPose', new THREE.BufferAttribute(new Float32Array(n*4),4).setUsage(THREE.DynamicDrawUsage));
+  const rnd = new Float32Array(n); for(let i=0;i<n;i++) rnd[i]=Math.random();
+  geo.setAttribute('aRnd', new THREE.BufferAttribute(rnd,1));
+  geo.setDrawRange(0,0);
+  geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e6);
+  points = new THREE.Points(geo, mat); points.frustumCulled = false;
+  scene.add(points);
+}
+function addFrame(data, pose, tn){
+  const pa = geo.attributes.position, ca = geo.attributes.color, fa = geo.attributes.aPose;
+  const n = Math.min(data.n, capacity-count);
+  pa.array.set(data.pos.subarray(0,n*3), count*3);
+  ca.array.set(data.col.subarray(0,n*3), count*3);
+  for(let i=count;i<count+n;i++){ fa.array[i*4]=pose.x; fa.array[i*4+1]=pose.z; fa.array[i*4+2]=pose.yaw; fa.array[i*4+3]=tn; }
+  pa.needsUpdate = ca.needsUpdate = fa.needsUpdate = true;
+  count += n; geo.setDrawRange(0,count);
+}
+function setPoses(list){ poses.length = 0; list.forEach(p=>poses.push(p)); nFrames = list.length; }
+
+/* dust */
+const DUST = 2600;
+const dGeo = new THREE.BufferGeometry();
+{ const a = new Float32Array(DUST*3), s = new Float32Array(DUST);
+  for(let i=0;i<DUST;i++){ a[i*3]=Math.random(); a[i*3+1]=Math.random(); a[i*3+2]=Math.random(); s[i]=Math.pow(Math.random(),3); }
+  dGeo.setAttribute('position', new THREE.BufferAttribute(a,3)); dGeo.setAttribute('aS', new THREE.BufferAttribute(s,1));
+  dGeo.boundingSphere = new THREE.Sphere(new THREE.Vector3(),1e6); }
+const dUni = { uMin:{value:new THREE.Vector3(-8,-4,-30)}, uMax:{value:new THREE.Vector3(8,5,6)}, uAmt:{value:.35}, uScale:uniforms.uScale };
+const dMat = new THREE.ShaderMaterial({uniforms:dUni, transparent:true, depthWrite:false, depthTest:false,
+  vertexShader:`uniform vec3 uMin,uMax; uniform float uAmt,uScale; attribute float aS; varying float vA;
+  void main(){ vec3 w = mix(uMin,uMax,position); vec4 mv = modelViewMatrix*vec4(w,1.); float d=-mv.z;
+    vA = step(position.x*.37+position.y*.63, uAmt) * (d>.05?1.:0.);
+    gl_Position = projectionMatrix*mv; gl_PointSize = clamp((1.0+aS*9.0)*uScale*.006/max(d,.05), 1.0, 30.0); }`,
+  fragmentShader:`precision mediump float; varying float vA; void main(){ float r=length(gl_PointCoord-.5)*2.; float m=1.-smoothstep(.55,1.,r); if(m*vA<.01) discard; gl_FragColor=vec4(.33,.35,.34,m*vA*.55); }`});
+const dust = new THREE.Points(dGeo, dMat); dust.frustumCulled=false; dust.renderOrder = 2; scene.add(dust);
+
+/* ---------- camera ---------- */
+const cam = { t:0, flying:true, oy:0, op:.06, dist:1.6, px:0, py:0, fov:62 };
+if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) cam.flying = false;
+const camTarget = new THREE.Vector3();
+mkSliders($('camSliders'), [
+  ['t','Point along the walk',0,1,.001,v=>Math.round(v*100)+' %'],
+  ['dist','Distance',.05,30,.05,v=>v.toFixed(2)],
+  ['py','Height',-4,6,.05,v=>v.toFixed(2)],
+  ['px','Sideways',-6,6,.05,v=>v.toFixed(2)],
+  ['fov','Lens (field of view)',20,110,1,v=>v+'°'],
+], cam, ()=>{ cam.flying=false; syncPlay(); }, 'c');
+function syncCamSliders(){ ['t','dist','py','px','fov'].forEach(k=>{ const i=$('c_'+k); i && i._sync(); }); }
+function pathAt(t){
+  if(!poses.length) return {x:0,z:0,yaw:0};
+  const f = Math.max(0, Math.min(poses.length-1, t*(poses.length-1)));
+  const i = Math.floor(f), j = Math.min(i+1, poses.length-1), u = f-i;
+  const a = poses[i], b = poses[j];
+  return { x:(a.x+(b.x-a.x)*u)*P.stretch, z:(a.z+(b.z-a.z)*u)*P.stretch, yaw:(a.yaw+(b.yaw-a.yaw)*u)*P.turn };
+}
+function orbitCamera(){
+  const p = pathAt(cam.t), p2 = pathAt(Math.min(1, cam.t+.04));
+  const yaw = p.yaw*.5 + p2.yaw*.5;
+  const cy = yaw + cam.oy, cp = cam.op;
+  const fx = -Math.sin(yaw), fz = -Math.cos(yaw), rx = Math.cos(yaw), rz = -Math.sin(yaw);
+  const tx = p.x + fx*1.2 + rx*cam.px, tz = p.z + fz*1.2 + rz*cam.px, ty = cam.py;
+  const dx = -Math.sin(cy)*Math.cos(cp), dy = -Math.sin(cp), dz = -Math.cos(cy)*Math.cos(cp);
+  camera.position.set(tx - dx*cam.dist, ty - dy*cam.dist, tz - dz*cam.dist);
+  camTarget.set(tx, ty, tz);
+  camera.lookAt(camTarget);
+  if(camera.fov !== cam.fov){ camera.fov = cam.fov; camera.updateProjectionMatrix(); }
+}
+
+/* ---------- camera keyframes ---------- */
+let keys = store.get('keys', []); // {time, pos:[x,y,z], tgt:[x,y,z], fov, view:{t,oy,op,dist,px,py}}
+let keyPlay = null; // {t0} while previewing the path
+let activeKey = -1;
+function easeU(u){ const m=$('selEase').value; if(m==='linear') return u; if(m==='ease') return u*u*(3-2*u); return u; }
+function keySpan(){ return keys.length ? keys[keys.length-1].time : 0; }
+function sortKeys(){ keys.sort((a,b)=>a.time-b.time); }
+let curvePos = null, curveTgt = null;
+function rebuildCurves(){
+  if(keys.length >= 2){
+    curvePos = new THREE.CatmullRomCurve3(keys.map(k=>new THREE.Vector3(...k.pos)), false, 'centripetal');
+    curveTgt = new THREE.CatmullRomCurve3(keys.map(k=>new THREE.Vector3(...k.tgt)), false, 'centripetal');
+  } else { curvePos = curveTgt = null; }
+  updatePathLine();
+}
+function keyCamera(time){ // place the camera at the given time (s) along the path
+  if(!keys.length) return false;
+  const v = new THREE.Vector3(), g = new THREE.Vector3();
+  let fov;
+  if(keys.length===1 || time <= keys[0].time){ v.set(...keys[0].pos); g.set(...keys[0].tgt); fov = keys[0].fov; }
+  else if(time >= keySpan()){ const k=keys[keys.length-1]; v.set(...k.pos); g.set(...k.tgt); fov = k.fov; }
+  else {
+    let i = 0; while(i < keys.length-2 && time > keys[i+1].time) i++;
+    const a = keys[i], b = keys[i+1];
+    const u = easeU((time-a.time)/Math.max(1e-6, b.time-a.time));
+    const n = keys.length-1, s = (i+u)/n;
+    if($('selEase').value==='linear'){ v.set(...a.pos).lerp(new THREE.Vector3(...b.pos), u); g.set(...a.tgt).lerp(new THREE.Vector3(...b.tgt), u); }
+    else { curvePos.getPoint(s, v); curveTgt.getPoint(s, g); }
+    fov = a.fov + (b.fov-a.fov)*u;
+  }
+  camera.position.copy(v); camTarget.copy(g); camera.lookAt(g);
+  if(camera.fov !== fov){ camera.fov = fov; camera.updateProjectionMatrix(); }
+  return true;
+}
+const pathGeo = new THREE.BufferGeometry();
+const pathLine = new THREE.Line(pathGeo, new THREE.LineBasicMaterial({color:0x9a4a2c, transparent:true, opacity:.85, depthTest:false}));
+pathLine.frustumCulled = false; pathLine.renderOrder = 5; scene.add(pathLine);
+const markGeo = new THREE.BufferGeometry();
+const marks = new THREE.Points(markGeo, new THREE.PointsMaterial({color:0x9a4a2c, size:9, sizeAttenuation:false, depthTest:false, transparent:true}));
+marks.frustumCulled = false; marks.renderOrder = 6; scene.add(marks);
+
+/* editing guides: axes, grid, camera and target (never exported) */
+const guides = new THREE.Group(); scene.add(guides);
+const axes = new THREE.AxesHelper(2.5); axes.material.depthTest = false; axes.renderOrder = 7; guides.add(axes);
+const grid = new THREE.GridHelper(60, 60, 0xb9bdb6, 0xdfe1dc); grid.position.y = -1.6; grid.material.transparent = true; grid.material.opacity = .7; grid.material.depthTest = false; guides.add(grid);
+const tgtMark = new THREE.Points(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3()]), new THREE.PointsMaterial({color:0x1c201e, size:7, sizeAttenuation:false, depthTest:false}));
+tgtMark.frustumCulled = false; tgtMark.renderOrder = 8; guides.add(tgtMark);
+const proxyCam = new THREE.PerspectiveCamera(62, 1, .05, 1.4);
+const camHelper = new THREE.CameraHelper(proxyCam); camHelper.renderOrder = 9; camHelper.material.depthTest = false; scene.add(camHelper);
+const camLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineDashedMaterial({color:0x1c201e, dashSize:.15, gapSize:.1, depthTest:false}));
+camLine.frustumCulled = false; camLine.renderOrder = 9; scene.add(camLine);
+const topCam = new THREE.OrthographicCamera(-1,1,1,-1,.1,400);
+const sideCam = new THREE.OrthographicCamera(-1,1,1,-1,.1,400);
+let split = false;
+function updatePathLine(){
+  const pts = [];
+  if(curvePos && $('selEase').value!=='linear') pts.push(...curvePos.getPoints(Math.max(16, keys.length*24)));
+  else keys.forEach(k=>pts.push(new THREE.Vector3(...k.pos)));
+  pathGeo.setFromPoints(pts.length>1 ? pts : [new THREE.Vector3(), new THREE.Vector3()]);
+  markGeo.setFromPoints(keys.length ? keys.map(k=>new THREE.Vector3(...k.pos)) : [new THREE.Vector3(1e5,1e5,1e5)]);
+  const show = $('chkPath').checked && keys.length>0;
+  pathLine.visible = show && keys.length>1; marks.visible = show;
+}
+function addKey(){
+  if(keyPlay) stopKeyPlay();
+  const gap = +$('selKeyGap').value;
+  const time = keys.length ? keySpan() + gap : 0;
+  keys.push({ time, pos:camera.position.toArray(), tgt:camTarget.toArray(), fov:camera.fov,
+    view:{t:cam.t, oy:cam.oy, op:cam.op, dist:cam.dist, px:cam.px, py:cam.py} });
+  activeKey = keys.length-1;
+  afterKeys();
+  setStatus(`Keyframe <b>${keys.length}</b> stored at ${time.toFixed(1)} s.`, 0);
+}
+function afterKeys(){ sortKeys(); rebuildCurves(); renderKeys(); store.set('keys', keys); updateDurNote(); }
+function goKey(i){
+  const k = keys[i]; if(!k) return; if(keyPlay) stopKeyPlay();
+  cam.flying = false; syncPlay();
+  if(k.view) Object.assign(cam, k.view);
+  cam.fov = k.fov; activeKey = i; syncCamSliders(); renderKeys();
+}
+function renderKeys(){
+  const box = $('keyList'); box.innerHTML = '';
+  $('keysLabel').textContent = keys.length ? `Keyframes · ${keys.length} · ${keySpan().toFixed(1)} s` : 'Keyframes';
+  $('btnKeyPlay').disabled = keys.length < 2; $('btnKeyClear').disabled = !keys.length;
+  if(!keys.length){ box.innerHTML = '<div class="empty">No keyframes yet. Frame a shot and press ◆. With two or more, the camera travels between them.</div>'; return; }
+  keys.forEach((k,i) => {
+    const el = document.createElement('div'); el.className='key'; el.setAttribute('aria-current', String(i===activeKey));
+    el.innerHTML = `<span class="kn">K${i+1}</span><input type="number" min="0" step="0.1" value="${k.time.toFixed(1)}" aria-label="Time of keyframe ${i+1} in seconds"><span class="kb">
+      <button type="button" class="small" data-a="go">Go</button><button type="button" class="small" data-a="set" title="Replace with current view">Set</button><button type="button" class="small" data-a="del" aria-label="Delete keyframe ${i+1}">✕</button></span>`;
+    el.querySelector('input').addEventListener('change', e => { k.time = Math.max(0, +e.target.value||0); afterKeys(); });
+    el.addEventListener('click', e => { const b = e.target.closest('button'); if(!b) return; const a=b.dataset.a;
+      if(a==='go') goKey(i);
+      if(a==='set'){ Object.assign(k, {pos:camera.position.toArray(), tgt:camTarget.toArray(), fov:camera.fov, view:{t:cam.t, oy:cam.oy, op:cam.op, dist:cam.dist, px:cam.px, py:cam.py}}); activeKey=i; afterKeys(); }
+      if(a==='del'){ keys.splice(i,1); activeKey=-1; afterKeys(); } });
+    box.appendChild(el);
+  });
+}
+function startKeyPlay(){ if(keys.length<2) return; keyPlay = {t0:performance.now()}; $('btnKeyPlay').textContent='■ Stop'; }
+function stopKeyPlay(){ keyPlay = null; $('btnKeyPlay').textContent='▶ Preview path'; }
+$('btnKeyAdd').addEventListener('click', addKey);
+$('btnKey').addEventListener('click', addKey);
+$('btnKeyPlay').addEventListener('click', () => keyPlay ? stopKeyPlay() : startKeyPlay());
+$('btnKeyClear').addEventListener('click', () => { if($('btnKeyClear').dataset.confirm){ keys=[]; activeKey=-1; delete $('btnKeyClear').dataset.confirm; $('btnKeyClear').textContent='Delete all'; afterKeys(); }
+  else { $('btnKeyClear').dataset.confirm='1'; $('btnKeyClear').textContent='Press again to delete'; setTimeout(()=>{ delete $('btnKeyClear').dataset.confirm; $('btnKeyClear').textContent='Delete all'; }, 3000); } });
+$('selEase').addEventListener('change', updatePathLine);
+$('chkPath').addEventListener('change', updatePathLine);
+function setSplit(v){ split = v; $('chkSplit').checked = v; $('btnSplit').setAttribute('aria-pressed', String(v)); $('labTop').hidden = $('labSide').hidden = !v; resize(); }
+$('chkSplit').addEventListener('change', e => setSplit(e.target.checked));
+$('btnSplit').addEventListener('click', () => setSplit(!split));
+
+const btnPlay = $('btnPlay');
+function syncPlay(){ btnPlay.textContent = cam.flying ? '❚❚' : '▶'; btnPlay.setAttribute('aria-label', cam.flying?'Pause flight':'Resume flight'); }
+btnPlay.addEventListener('click', ()=>{ if(keyPlay) stopKeyPlay(); cam.flying=!cam.flying; syncPlay(); }); syncPlay();
+
+/* gestures: 1 finger looks, 2 fingers zoom and pan */
+const ptrs = new Map(); let g0 = null, lastTap = 0;
+function twoInfo(){ const [a,b]=[...ptrs.values()]; return {d:Math.hypot(a.x-b.x,a.y-b.y), cx:(a.x+b.x)/2, cy:(a.y+b.y)/2}; }
+canvas.addEventListener('pointerdown', e => { canvas.setPointerCapture(e.pointerId); ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY}); hideHint();
+  if(keyPlay) stopKeyPlay();
+  if(ptrs.size===2){ const t=twoInfo(); g0={...t, dist:cam.dist, px:cam.px, py:cam.py}; }
+  const now=performance.now(); if(ptrs.size===1 && now-lastTap<300){ Object.assign(cam,{oy:0,op:.06,dist:1.6,px:0,py:0,fov:62}); syncCamSliders(); } lastTap=now; });
+canvas.addEventListener('pointermove', e => { const q = ptrs.get(e.pointerId); if(!q) return;
+  const dx=e.clientX-q.x, dy=e.clientY-q.y; q.x=e.clientX; q.y=e.clientY;
+  if(ptrs.size===1){ cam.oy -= dx*.006; cam.op = Math.max(-1.3, Math.min(1.45, cam.op + dy*.005)); }
+  else if(ptrs.size===2 && g0){ const t=twoInfo(); cam.dist = Math.max(.05, Math.min(60, g0.dist*g0.d/t.d));
+    const k = .004*Math.max(1,cam.dist); cam.px = g0.px - (t.cx-g0.cx)*k; cam.py = g0.py + (t.cy-g0.cy)*k; }
+  syncCamSliders();
+});
+const up = e => { ptrs.delete(e.pointerId); if(ptrs.size<2) g0=null; };
+canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', up);
+canvas.addEventListener('wheel', e => { e.preventDefault(); if(keyPlay) stopKeyPlay(); cam.dist = Math.max(.05, Math.min(60, cam.dist*Math.exp(e.deltaY*.0012))); syncCamSliders(); }, {passive:false});
+let hintT = setTimeout(hideHint, 8000);
+function hideHint(){ $('hint').style.opacity = 0; clearTimeout(hintT); }
+
+let exporting = false;
+function resize(){
+  if(exporting) return;
+  const w = innerWidth, h = innerHeight;
+  dpr = Math.min(window.devicePixelRatio||1, 2) * Q.pxr;
+  renderer.setPixelRatio(dpr); renderer.setSize(w,h,false);
+  const L = layout(); camera.aspect = L.main.w/L.main.h; camera.updateProjectionMatrix();
+  uniforms.uScale.value = L.main.h*dpr*.5;
+  const sh = !!(split && L.top && L.top.x + L.top.w >= w - 1 && L.main.w < w); document.body.classList.toggle('split-h', sh); document.documentElement.style.setProperty('--colw', sh ? (w-L.main.w)+'px' : '0px');
+  if(!split) document.body.classList.remove('split-h');
+  if(split){ [['labTop',L.top],['labSide',L.side]].forEach(([id,r])=>{ const e=$(id).style; e.left=r.x+'px'; e.top=(h-r.y-r.h)+'px'; e.width=r.w+'px'; e.height=r.h+'px'; }); }
+}
+/* rectangle of each view in CSS px (y from the bottom, like WebGL) */
+function layout(){
+  const w = innerWidth, h = innerHeight;
+  if(!split) return { main:{x:0,y:0,w,h} };
+  if(w > h*1.05){ const cw = Math.round(w*.32), hh = Math.round(h/2);
+    return { main:{x:0,y:0,w:w-cw,h}, top:{x:w-cw,y:hh,w:cw,h:h-hh}, side:{x:w-cw,y:0,w:cw,h:hh} }; }
+  const top0 = 64, iw = Math.round(w*.44), ih = Math.round(Math.min(h*.22, iw*1.05));
+  return { main:{x:0,y:0,w,h},
+    top:{x:w-iw-8, y:h-top0-ih, w:iw, h:ih},
+    side:{x:w-iw-8, y:h-top0-ih*2-8, w:iw, h:ih} };
+}
+function fitOrtho(){
+  const b = new THREE.Box3();
+  poses.forEach(p=>b.expandByPoint(new THREE.Vector3(p.x*P.stretch, 0, p.z*P.stretch)));
+  keys.forEach(k=>{ b.expandByPoint(new THREE.Vector3(...k.pos)); b.expandByPoint(new THREE.Vector3(...k.tgt)); });
+  b.expandByPoint(camera.position); b.expandByPoint(camTarget);
+  b.expandByScalar(3);
+  const c = b.getCenter(new THREE.Vector3()), sz = b.getSize(new THREE.Vector3());
+  return { c, sz };
+}
+function setOrtho(cam_, r, halfW, halfH){
+  const a = r.w/r.h; let hw = halfW, hh = halfH;
+  if(hw/hh > a) hh = hw/a; else hw = hh*a;
+  cam_.left=-hw; cam_.right=hw; cam_.top=hh; cam_.bottom=-hh; cam_.updateProjectionMatrix();
+  return hh;
+}
+function renderViews(){
+  tgtMark.position.copy(camTarget);
+  const showAxes = $('chkAxes').checked;
+  if(!split){
+    guides.visible = showAxes; tgtMark.visible = showAxes; camHelper.visible = false; camLine.visible = false;
+    renderer.setScissorTest(false); renderer.setViewport(0,0,innerWidth,innerHeight);
+    renderer.render(scene, camera); return;
+  }
+  const L = layout();
+  renderer.setScissorTest(true);
+  // 3D view
+  guides.visible = showAxes; tgtMark.visible = showAxes; camHelper.visible = false; camLine.visible = false;
+  renderer.setViewport(L.main.x,L.main.y,L.main.w,L.main.h); renderer.setScissor(L.main.x,L.main.y,L.main.w,L.main.h);
+  renderer.setClearColor(0xf5f5f3,1); renderer.clear(); renderer.render(scene, camera);
+  // orthographic views
+  proxyCam.position.copy(camera.position); proxyCam.quaternion.copy(camera.quaternion); proxyCam.fov = camera.fov; proxyCam.aspect = camera.aspect; proxyCam.updateProjectionMatrix(); proxyCam.updateMatrixWorld(); camHelper.update();
+  camLine.geometry.setFromPoints([camera.position, camTarget]); camLine.computeLineDistances();
+  const keepScale = uniforms.uScale.value, keepFog = uniforms.uFog.value, keepSize = uniforms.uSize.value;
+  guides.visible = true; tgtMark.visible = true; camHelper.visible = true; camLine.visible = true; dust.visible = false;
+  const pl = pathLine.visible, mk = marks.visible; pathLine.visible = keys.length>1; marks.visible = keys.length>0;
+  const {c, sz} = fitOrtho();
+  uniforms.uFog.value = 0; uniforms.uSize.value = 1;
+  // top: looks down -Y; X to the right, Z downwards
+  topCam.position.set(c.x, 200, c.z); topCam.up.set(0,0,-1); topCam.lookAt(c.x, 0, c.z);
+  setOrtho(topCam, L.top, sz.x/2, sz.z/2);
+  uniforms.uScale.value = 1.5*200/(.01);
+  renderer.setViewport(L.top.x,L.top.y,L.top.w,L.top.h); renderer.setScissor(L.top.x,L.top.y,L.top.w,L.top.h);
+  renderer.setClearColor(0xeceee9,1); renderer.clear(); renderer.render(scene, topCam);
+  // side: looks along -X; Z horizontal, Y vertical
+  sideCam.position.set(c.x+200, c.y, c.z); sideCam.up.set(0,1,0); sideCam.lookAt(c.x, c.y, c.z);
+  setOrtho(sideCam, L.side, sz.z/2, Math.max(sz.y/2, 3));
+  renderer.setViewport(L.side.x,L.side.y,L.side.w,L.side.h); renderer.setScissor(L.side.x,L.side.y,L.side.w,L.side.h);
+  renderer.clear(); renderer.render(scene, sideCam);
+  renderer.setClearColor(0xf5f5f3,1);
+  uniforms.uScale.value = keepScale; uniforms.uFog.value = keepFog; uniforms.uSize.value = keepSize;
+  pathLine.visible = pl; marks.visible = mk; dust.visible = true; camHelper.visible = false; camLine.visible = false;
+  renderer.setScissorTest(false);
+}
+addEventListener('resize', resize); resize();
+
+function applyUniforms(){
+  uniforms.uKeep.value=Q.keep;
+  uniforms.uStretch.value=P.stretch; uniforms.uTurn.value=P.turn; uniforms.uCut.value=P.cut; uniforms.uSize.value=P.size;
+  uniforms.uOpacity.value=P.opacity; uniforms.uWash.value=P.wash; uniforms.uFog.value=P.fog; uniforms.uWave.value=P.wave; uniforms.uRise.value=P.rise;
+  uniforms.uMode.value=P.mode; uniforms.uWin.value=P.win; uniforms.uTime.value=cam.t;
+  dUni.uAmt.value = P.dust;
+  if(poses.length){ let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9; poses.forEach(p=>{x0=Math.min(x0,p.x*P.stretch);x1=Math.max(x1,p.x*P.stretch);z0=Math.min(z0,p.z*P.stretch);z1=Math.max(z1,p.z*P.stretch);});
+    dUni.uMin.value.set(x0-9,-4,z0-14); dUni.uMax.value.set(x1+9,6,z1+4); }
+}
+let last = performance.now();
+function loop(now){
+  const dt = Math.min(.05,(now-last)/1000); last = now;
+  if(!exporting){
+    uniforms.uClock.value += dt;
+    if(keyPlay){
+      const tt = (now-keyPlay.t0)/1000;
+      if(tt > keySpan()+.4) stopKeyPlay(); else { cam.t = keySpan()>0 ? Math.min(1, tt/keySpan()) : 0; applyUniforms(); keyCamera(tt); }
+    }
+    if(!keyPlay){
+      if(cam.flying && nFrames>1){ cam.t += dt*P.speed*.09; if(cam.t>1) cam.t -= 1; const i=$('c_t'); if(i && !$('panelWrap').hidden) i._sync(); }
+      applyUniforms(); orbitCamera();
+    }
+    renderViews();
+  }
+  requestAnimationFrame(loop);
+}
+
+/* ---------- demo ---------- */
+function buildDemo(){
+  const F = 20, W = 96, H = Math.round(W*16/9);
+  allocate(F*W*H);
+  let rng = 7; const R = () => (rng = (rng*16807)%2147483647)/2147483647;
+  const trees = [];
+  for(let i=0;i<110;i++){ const z=-R()*46+4; const side=R()<.5?-1:1; const x=side*(1.4+R()*7)+Math.sin(z*.12)*2.2; trees.push({x,z,r:.14+R()*.3,h:6+R()*8,tone:R()}); }
+  trees.push({x:.9,z:-9,r:.18,h:9,tone:.2});
+  const ps = [];
+  for(let f=0;f<F;f++){ const zc=-f*1.6; ps.push({x:Math.sin(zc*.12)*2.2*.9, z:zc, yaw:Math.atan(Math.cos(zc*.12)*.12*2.2*.9)}); }
+  const p0 = ps[0], np = ps.map(p=>({x:(p.x-p0.x)/1.6, z:(p.z-p0.z)/1.6, yaw:p.yaw}));
+  for(let f=0;f<F;f++){
+    const {x:cx, z:cz, yaw} = ps[f], c=Math.cos(yaw), s=Math.sin(yaw);
+    const pos = new Float32Array(W*H*3), col = new Uint8Array(W*H*3); let n=0;
+    for(let j=0;j<H;j++) for(let i=0;i<W;i++){
+      const u = ((i+Math.random())/W*2-1)*W/H, v = 1-(j+Math.random())/H*2;
+      const lx = u*TANY, ly = v*TANY, lz = -1;
+      const rx = c*lx + s*lz, rz = -s*lx + c*lz, ry = ly;
+      let best = 1e9, hit = null;
+      for(const t of trees){
+        const ox = cx - t.x, oz = cz - t.z; const a = rx*rx+rz*rz, b = 2*(ox*rx+oz*rz), cc = ox*ox+oz*oz-t.r*t.r;
+        const disc = b*b-4*a*cc; if(disc<0) continue; const tt = (-b-Math.sqrt(disc))/(2*a);
+        if(tt>0 && tt<best){ const yy = ry*tt; if(yy>-1.6 && yy<t.h-1.6){ best=tt; hit=t; } }
+      }
+      let r,g,bl, depth;
+      const tg = ry<0 ? -1.6/ry : 1e9;
+      if(tg<best && tg<ZFAR*1.2){ depth=tg; const wx=cx+rx*tg, wz=cz+rz*tg; const path=Math.abs(wx-Math.sin(wz*.12)*2.2*.9)<1.1;
+        const nse=Math.random()*.15; if(path){ r=.82+nse; g=.62+nse; bl=.5+nse; } else { r=.68+nse*.6; g=.62+nse; bl=.38; } }
+      else if(hit){ depth=best; const top=(ry*best+1.6)/hit.h; const nse=Math.random()*.12;
+        if(top>.55 && Math.random()<.6){ r=.2+nse; g=.3+nse; bl=.17; } else { const k=.14+hit.tone*.28+nse; r=k*1.1+.06; g=k*.88+.03; bl=k*.75; } }
+      else continue;
+      if(depth>ZFAR) continue;
+      const dn = (ZNEAR/Math.max(depth,ZNEAR) - K)/(1-K);
+      pos[n*3]=u; pos[n*3+1]=v; pos[n*3+2]=dn;
+      col[n*3]=Math.min(255,r*255); col[n*3+1]=Math.min(255,g*255); col[n*3+2]=Math.min(255,bl*255); n++;
+    }
+    addFrame({pos,col,n}, np[f], f/(F-1));
+  }
+  setPoses(np);
+}
+
+/* ---------- shared utilities ---------- */
+function loadScript(src){ return new Promise((res,rej)=>{ const s=document.createElement('script'); s.src=src; s.onload=res; s.onerror=()=>rej(new Error('Could not load '+src)); document.head.appendChild(s); }); }
+async function fetchProgress(url, onp){
+  const r = await fetch(url); if(!r.ok) throw new Error('HTTP '+r.status+' at '+url);
+  const total = +r.headers.get('content-length') || 0;
+  if(!r.body || !r.body.getReader){ const b = new Uint8Array(await r.arrayBuffer()); onp(b.length,b.length); return b; }
+  const rd = r.body.getReader(); const chunks=[]; let got=0;
+  for(;;){ const {done,value} = await rd.read(); if(done) break; chunks.push(value); got+=value.length; onp(got,total); }
+  const out = new Uint8Array(got); let o=0; for(const c of chunks){ out.set(c,o); o+=c.length; } return out;
+}
+function seek(video, t){ return new Promise(res => { let done=false; const fin=()=>{ if(done) return; done=true; video.removeEventListener('seeked',fin);
+  if(video.requestVideoFrameCallback) video.requestVideoFrameCallback(()=>res()); else setTimeout(res,30); setTimeout(res,400); };
+  video.addEventListener('seeked',fin); video.currentTime=t; setTimeout(fin,4000); }); }
+function thumbGray(srcCanvas, W, H){ const tw=64, th=Math.round(64*H/W); const c=document.createElement('canvas'); c.width=tw; c.height=th; const x=c.getContext('2d'); x.drawImage(srcCanvas,0,0,tw,th);
+  const d=x.getImageData(0,0,tw,th).data, g=new Float32Array(tw*th); for(let i=0;i<tw*th;i++) g[i]=(d[i*4]*.3+d[i*4+1]*.59+d[i*4+2]*.11); return {g,tw,th}; }
+function estimateShift(a,b){
+  const {tw,th}=a; let best=1e18, bx=0; const R=16, RY=6;
+  for(let dy=-RY;dy<=RY;dy+=2) for(let dx=-R;dx<=R;dx++){
+    let s=0,n=0;
+    for(let y=Math.floor(th*.2);y<th*.8;y+=2){ const y2=y+dy; if(y2<0||y2>=th) continue;
+      for(let x=R;x<tw-R;x+=1){ s+=Math.abs(a.g[y*tw+x]-b.g[y2*tw+x+dx]); n++; } }
+    s/=Math.max(1,n); if(s<best){ best=s; bx=dx; } }
+  return bx;
+}
+
+/* ---------- backend: browser ---------- */
+let session = null, ortReady = null;
+async function getSession(){
+  if(session) return session;
+  if(!ortReady) ortReady = (async()=>{
+    setStatus('Loading inference engine…', .02);
+    await loadScript(ORT_URL);
+    const wasm = await fetchProgress('ort-wasm-simd-threaded.wasm', (g,t)=>setStatus('Downloading engine · '+(g/1e6).toFixed(1)+' MB', t? g/t*.25 : .1));
+    ort.env.wasm.numThreads = 1; ort.env.wasm.proxy = false;
+    ort.env.wasm.wasmPaths = ORT_BASE; ort.env.wasm.wasmBinary = wasm.buffer;
+    const parts=[]; let acc=0; const TOT=25.6e6;
+    for(const p of MODEL_PARTS){ const b = await fetchProgress(p,(g)=>setStatus('Downloading depth model · '+((acc+g)/1e6).toFixed(1)+' MB', .25+(acc+g)/TOT*.7)); acc+=b.length; parts.push(b); }
+    const all = new Uint8Array(acc); let o=0; for(const b of parts){ all.set(b,o); o+=b.length; }
+    setStatus('Preparing model…', .97);
+    session = await ort.InferenceSession.create(all, {executionProviders:['wasm'], graphOptimizationLevel:'all'});
+    return session;
+  })();
+  try { return await ortReady; } catch(e){ ortReady = null; throw e; }
+}
+const mc = document.createElement('canvas'); mc.width = mc.height = MODEL_SIZE; const mctx = mc.getContext('2d', {willReadFrequently:true});
+async function depthOf(source){
+  mctx.drawImage(source, 0, 0, MODEL_SIZE, MODEL_SIZE);
+  const id = mctx.getImageData(0,0,MODEL_SIZE,MODEL_SIZE).data, N = MODEL_SIZE*MODEL_SIZE;
+  const x = new Float32Array(3*N); const m=[.485,.456,.406], s=[.229,.224,.225];
+  for(let i=0;i<N;i++){ x[i]=(id[i*4]/255-m[0])/s[0]; x[N+i]=(id[i*4+1]/255-m[1])/s[1]; x[2*N+i]=(id[i*4+2]/255-m[2])/s[2]; }
+  const out = await session.run({[session.inputNames[0]]: new ort.Tensor('float32', x, [1,3,MODEL_SIZE,MODEL_SIZE])});
+  return out[session.outputNames[0]].data;
+}
+function pseudoDepth(data, W, H){
+  const d = new Float32Array(MODEL_SIZE*MODEL_SIZE);
+  for(let j=0;j<MODEL_SIZE;j++) for(let i=0;i<MODEL_SIZE;i++){
+    const sx = Math.floor(i/MODEL_SIZE*W), sy = Math.floor(j/MODEL_SIZE*H), k=(sy*W+sx)*4;
+    const l = (data[k]+data[k+1]+data[k+2])/765; d[j*MODEL_SIZE+i] = Math.pow(j/MODEL_SIZE,1.6)*.8 + (1-l)*.35;
+  }
+  return d;
+}
+const web = {
+  video:null, url:null,
+  async open(file){
+    if(this.url) URL.revokeObjectURL(this.url);
+    const v = document.createElement('video'); v.muted=true; v.playsInline=true; v.setAttribute('playsinline',''); v.preload='auto';
+    this.url = URL.createObjectURL(file); v.src = this.url;
+    await new Promise((res,rej)=>{ v.onloadeddata=res; v.onerror=()=>rej(new Error('the browser cannot read this format')); setTimeout(()=>rej(new Error('the video took too long to open')),20000); });
+    try { await v.play(); v.pause(); } catch(_){}
+    if(!v.videoWidth || !isFinite(v.duration)) throw new Error('could not read the duration');
+    this.video = v;
+    return { name:file.name, dur:v.duration, w:v.videoWidth, h:v.videoHeight };
+  },
+  // Port of PySceneDetect's ContentDetector / AdaptiveDetector: mean H, S and V difference between samples.
+  async detect(opts, onp){
+    const v = this.video, dur = v.duration, step = 1/opts.fps;
+    const W = 96, H = Math.max(8, Math.round(96*v.videoHeight/v.videoWidth));
+    const c = document.createElement('canvas'); c.width=W; c.height=H; const x = c.getContext('2d',{willReadFrequently:true});
+    const hsv = () => { const d = x.getImageData(0,0,W,H).data, n=W*H, o = new Float32Array(n*3);
+      for(let i=0;i<n;i++){ const r=d[i*4], g=d[i*4+1], b=d[i*4+2], mx=Math.max(r,g,b), mn=Math.min(r,g,b), df=mx-mn;
+        let h=0; if(df>0){ if(mx===r) h=((g-b)/df)%6; else if(mx===g) h=(b-r)/df+2; else h=(r-g)/df+4; h*=30; if(h<0) h+=180; }
+        o[i*3]=h; o[i*3+1]= mx? df/mx*255 : 0; o[i*3+2]=mx; } return o; };
+    const times=[], scores=[]; let prev=null; const n = Math.floor(dur/step);
+    for(let k=0;k<=n;k++){
+      const t = Math.min(dur-.02, k*step); await seek(v,t); x.drawImage(v,0,0,W,H); const cur = hsv();
+      if(prev){ let dh=0,ds=0,dv=0; for(let i=0;i<cur.length;i+=3){ dh+=Math.abs(cur[i]-prev[i]); ds+=Math.abs(cur[i+1]-prev[i+1]); dv+=Math.abs(cur[i+2]-prev[i+2]); }
+        const m = cur.length/3; scores.push((dh+ds+dv)/(3*m)); times.push(t); }
+      prev = cur;
+      if(k%4===0) onp(k/n);
+    }
+    const cuts = [];
+    for(let i=0;i<scores.length;i++){
+      let ok;
+      if(opts.det==='adaptive'){ let s=0,c2=0; for(let j=Math.max(0,i-2); j<=Math.min(scores.length-1,i+2); j++) if(j!==i){ s+=scores[j]; c2++; }
+        const avg = c2? s/c2 : 0; ok = scores[i] >= opts.thr*.55 && scores[i] >= 3*Math.max(avg, 1e-3); }
+      else ok = scores[i] >= opts.thr;
+      const t = times[i], lastCut = cuts.length ? cuts[cuts.length-1] : 0;
+      if(ok && t - lastCut >= opts.min && dur - t >= opts.min*.5) cuts.push(t);
+    }
+    // refine each cut with a binary search between the previous sample and the cut sample
+    const grab = async tt => { await seek(v, tt); x.drawImage(v,0,0,W,H); return hsv(); };
+    const dif = (p,q) => { let s=0; for(let i=0;i<p.length;i++) s+=Math.abs(p[i]-q[i]); return s/p.length; };
+    for(let c=0;c<cuts.length;c++){
+      let lo = Math.max(0, cuts[c]-step), hi = cuts[c];
+      const A = await grab(lo), B = await grab(hi);
+      for(let it=0; it<5; it++){ const mid=(lo+hi)/2, M = await grab(mid); if(dif(M,A) < dif(M,B)) lo = mid; else hi = mid; }
+      cuts[c] = hi;
+    }
+    const bounds = [0, ...cuts, dur], scenes = [];
+    for(let i=0;i<bounds.length-1;i++) scenes.push({start:bounds[i], end:bounds[i+1]});
+    // thumbnails
+    const tc = document.createElement('canvas'); tc.width=192; tc.height=Math.round(192*v.videoHeight/v.videoWidth); const tx=tc.getContext('2d');
+    for(let i=0;i<scenes.length;i++){ const s=scenes[i]; await seek(v, (s.start+s.end)/2); tx.drawImage(v,0,0,tc.width,tc.height); s.thumb = tc.toDataURL('image/jpeg',.72); onp(1); }
+    return scenes;
+  },
+  async process(sc, opts, onFrame, onStatus){
+    const v = this.video, vw=v.videoWidth, vh=v.videoHeight, aspect=vw/vh;
+    const Wp = opts.def, Hp = Math.round(Wp*vh/vw);
+    const len = sc.end - sc.start, F = Math.max(2, Math.min(opts.frames, Math.floor(len*30)));
+    const keepP = Math.min(1, opts.maxp*1e6/(F*Wp*Hp));
+    let useModel = true;
+    try { await getSession(); } catch(err){ console.warn(err); useModel=false; }
+    onFrame(null, {alloc: Math.ceil(F*Wp*Hp*Math.min(1,keepP*1.03))+Wp*Hp, F});
+    const fc = document.createElement('canvas'); fc.width=Wp; fc.height=Hp; const fctx = fc.getContext('2d',{willReadFrequently:true});
+    const list=[]; let yaw=0, px=0, pz=0, prev=null; const hfov = 2*Math.atan(TANY*aspect);
+    const t0 = performance.now();
+    for(let f=0; f<F; f++){
+      if(this.cancel) throw new Error('cancelled');
+      const t = sc.start + .04 + (len-.08)*f/Math.max(1,F-1);
+      await seek(v, t);
+      fctx.drawImage(v,0,0,Wp,Hp);
+      const img = fctx.getImageData(0,0,Wp,Hp).data;
+      const th = thumbGray(fc,Wp,Hp);
+      if(prev){ const dx = estimateShift(prev, th); yaw += dx/th.tw*hfov; px += -Math.sin(yaw); pz += -Math.cos(yaw); }
+      prev = th; list.push({x:px, z:pz, yaw});
+      const dep = useModel ? await depthOf(v) : pseudoDepth(img, Wp, Hp);
+      const samp=[]; for(let i=0;i<dep.length;i+=97) samp.push(dep[i]); samp.sort((a,b)=>a-b);
+      const lo = samp[Math.floor(samp.length*.02)], hi = samp[Math.floor(samp.length*.985)], rg = Math.max(1e-6, hi-lo);
+      const pos = new Float32Array(Wp*Hp*3), col = new Uint8Array(Wp*Hp*3); let n=0;
+      for(let j=0;j<Hp;j++) for(let i=0;i<Wp;i++){
+        if(keepP<1 && Math.random()>keepP) continue;
+        const mx = Math.min(MODEL_SIZE-1, Math.floor((i+.5)/Wp*MODEL_SIZE)), my = Math.min(MODEL_SIZE-1, Math.floor((j+.5)/Hp*MODEL_SIZE));
+        const dn = Math.max(0, Math.min(1, (dep[my*MODEL_SIZE+mx]-lo)/rg)), k=(j*Wp+i)*4;
+        pos[n*3] = ((i+Math.random())/Wp*2-1)*aspect; pos[n*3+1] = 1-(j+Math.random())/Hp*2; pos[n*3+2] = dn;
+        col[n*3]=img[k]; col[n*3+1]=img[k+1]; col[n*3+2]=img[k+2]; n++;
+      }
+      onFrame({pos,col,n}, {pose:list[f], tn: f/(F-1), poses:list});
+      const el = (performance.now()-t0)/1000, eta = el/(f+1)*(F-f-1);
+      onStatus(`${useModel?'Depth':'Approximate depth'} · frame <b>${f+1}/${F}</b> · ~${Math.ceil(eta)} s left`, (f+1)/F);
+    }
+    return { F, approx: !useModel };
+  },
+  async save(blob, filename){
+    if(!downloads) throw {code:'unavailable'};
+    return downloads.save({ filename, data:blob });
+  },
+};
+
+/* ---------- backend: desktop (local Python server) ---------- */
+const desk = {
+  id:null, info:null,
+  async job(path, body, onp){
+    const r = await fetch(path, {method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify(body)});
+    if(!r.ok) throw new Error((await r.text()).slice(0,200));
+    const {job} = await r.json(); this.curJob = job;
+    for(;;){ await wait(400);
+      const s = await (await fetch('api/job/'+job)).json();
+      if(s.error) throw new Error(s.error);
+      onp && onp(s);
+      if(s.done) return s.result; }
+  },
+  async open(file){
+    setStatus('Uploading video to the app…', 0);
+    const r = await fetch('api/upload', {method:'POST', headers:{'x-filename':encodeURIComponent(file.name)}, body:file});
+    if(!r.ok) throw new Error((await r.text()).slice(0,200));
+    const j = await r.json(); this.id = j.id; return j;
+  },
+  async detect(opts, onp){
+    const res = await this.job('api/scenes', {id:this.id, detector:opts.det, threshold:opts.thr, min_len:opts.min}, s=>onp(s.progress||0));
+    return res.scenes.map(s=>({start:s.start, end:s.end, thumb:'api/thumb/'+this.id+'/'+s.index+'?v='+Date.now()}));
+  },
+  async process(sc, opts, onFrame, onStatus){
+    const res = await this.job('api/process', {id:this.id, start:sc.start, end:sc.end, frames:opts.frames, def:opts.def, maxp:opts.maxp,
+      model:$('selModel').value, grid:+$('selDepthRes').value}, s=>onStatus(esc(s.msg||'Processing…'), s.progress||0));
+    onStatus('Loading point cloud…', 1);
+    const buf = await (await fetch('api/cloud/'+res.key)).arrayBuffer();
+    const dv = new DataView(buf), hl = dv.getUint32(0,true);
+    const head = JSON.parse(new TextDecoder().decode(new Uint8Array(buf,4,hl)));
+    let off = 4+hl; off = (off+3)&~3;
+    const total = head.total, pos = new Float32Array(buf, off, total*3); off += total*12;
+    const col = new Uint8Array(buf, off, total*3);
+    onFrame(null, {alloc: total, F: head.frames.length});
+    const list = head.frames.map(f=>({x:f.x, z:f.z, yaw:f.yaw}));
+    let o = 0;
+    head.frames.forEach((f,i) => { onFrame({pos:pos.subarray(o*3,(o+f.n)*3), col:col.subarray(o*3,(o+f.n)*3), n:f.n}, {pose:list[i], tn:f.tn, poses:list}); o += f.n; });
+    return { F: head.frames.length, approx:false };
+  },
+  async save(blob, filename){
+    const r = await fetch('api/save?name='+encodeURIComponent(filename), {method:'POST', body:blob});
+    if(!r.ok) throw new Error((await r.text()).slice(0,200));
+    return r.json();
+  },
+  async concat(names){ return this.job('api/concat', {names}, s=>setStatus(esc(s.msg||'Joining…'), s.progress||0)); },
+};
+
+let backend = web, isDesk = false;
+let downloads = null;
+try { window.claude && window.claude.use && window.claude.use('downloads').then(d => { downloads = d; }).catch(()=>{}); } catch(_){}
+
+/* ---------- video and scene state ---------- */
+let vid = null;           // {name, dur, w, h}
+let scenes = [];          // {start,end,thumb,sel,state,out}
+let current = -1, busy = false, stopBatch = false;
+let lastAspect = 9/16;
+function updateEstimate(){
+  const Hp = Math.round(Q.def/lastAspect), raw = Q.frames*Q.def*Hp, cap = Q.maxp*1e6, use = Math.min(raw, cap);
+  const per = isDesk ? 0.4 : 2.2;
+  $('preEst').textContent = `≈ ${(use/1e6).toFixed(2)} M particles per scene`+(raw>cap?` (out of ${(raw/1e6).toFixed(2)} M possible; a random sample is kept)`:'')+` · ~${Math.ceil(Q.frames*per)} s per scene`;
+}
+function setBusy(b){ busy=b; ['btnUpload','btnDetect','btnBatch','btnRedo','btnExport'].forEach(id=>{ const e=$(id); if(e) e.disabled = b || (id==='btnDetect' && !vid) || (id==='btnRedo' && current<0); }); document.querySelectorAll('.scene button').forEach(x=>x.disabled=b); $('btnStop').hidden = !b || !batchRunning; }
+let batchRunning = false;
+
+function renderScenes(){
+  const box = $('sceneList'); box.innerHTML='';
+  $('scenesEmpty').hidden = scenes.length>0; $('selRow').hidden = !scenes.length;
+  const nsel = scenes.filter(s=>s.sel).length;
+  $('scenesLabel').textContent = scenes.length ? `Scenes · ${scenes.length} · ${nsel} selected` : 'Scenes';
+  $('btnBatch').hidden = !scenes.length; $('btnBatch').textContent = `Process and export ${nsel} scene${nsel===1?'':'s'}`; $('btnBatch').disabled = busy || !nsel;
+  scenes.forEach((s,i) => {
+    const el = document.createElement('div'); el.className='scene'; el.setAttribute('aria-current', String(i===current));
+    const st = s.state==='done' ? '<span class="st ok">✓ exported</span>' : s.state==='work' ? '<span class="st">processing…</span>' : s.state==='ready' ? '<span class="st ok">in view</span>' : s.state==='err' ? '<span class="st">error</span>' : '';
+    el.innerHTML = `<img class="th" alt="Scene ${i+1}" src="${esc(s.thumb||'')}"><label class="pick"><input type="checkbox" ${s.sel?'checked':''} aria-label="Select scene ${i+1}"></label>${st}
+      <div class="meta"><b>Scene ${i+1}</b><span>${fmtT(s.start)} – ${fmtT(s.end)} · ${(s.end-s.start).toFixed(1)} s</span></div>
+      <div class="acts"><button type="button" class="small" ${busy?'disabled':''}>View in 3D</button></div>`;
+    el.querySelector('input').addEventListener('change', e => { s.sel = e.target.checked; renderScenes(); });
+    el.querySelector('.acts button').addEventListener('click', () => viewScene(i));
+    box.appendChild(el);
+  });
+}
+$('btnAll').addEventListener('click', ()=>{ scenes.forEach(s=>s.sel=true); renderScenes(); });
+$('btnNone').addEventListener('click', ()=>{ scenes.forEach(s=>s.sel=false); renderScenes(); });
+
+$('btnUpload').addEventListener('click', ()=>{ if(!busy) $('file').click(); });
+$('file').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; e.target.value=''; if(f) openVideo(f); });
+async function openVideo(file){
+  setBusy(true);
+  try {
+    vid = await backend.open(file);
+    lastAspect = vid.w/vid.h; updateEstimate();
+    $('srcLabel').textContent = vid.name;
+    scenes = []; current = -1; results.length = 0; renderResults(); renderScenes();
+    showPanel(true); showTab('escenas');
+    await detect();
+  } catch(err){ console.error(err); setStatus('Could not open the video: '+esc(err && err.message || err), 0); }
+  setBusy(false); renderScenes();
+}
+async function detect(){
+  if(!vid) return;
+  setBusy(true);
+  try {
+    const opts = { det:$('selDet').value, thr:Q.detThr, min:Q.detMin, fps:+$('selDetFps').value };
+    setStatus('Looking for scene cuts…', 0);
+    const found = await backend.detect(opts, p=>setStatus(`Looking for scene cuts · ${Math.round(p*100)} %`, p));
+    scenes = found.map(s=>({...s, sel:true, state:''}));
+    setStatus(`<b>${scenes.length} scene${scenes.length===1?'':'s'}</b> detected. Pick which ones to convert.`, 1);
+  } catch(err){ console.error(err); setStatus('Could not detect scenes: '+esc(err && err.message || err), 0); }
+  setBusy(false); renderScenes();
+}
+$('btnDetect').addEventListener('click', ()=>{ if(!busy) detect(); });
+
+async function processScene(i){
+  const sc = scenes[i]; current = i; sc.state='work'; renderScenes();
+  cam.t = 0; let started = false;
+  const opts = { frames:Q.frames, def:Q.def, maxp:Q.maxp };
+  const r = await backend.process(sc, opts, (data, info) => {
+    if(!data){ allocate(info.alloc); setPoses([{x:0,z:0,yaw:0}]); started = true; return; }
+    addFrame(data, info.pose, info.tn); setPoses(info.poses);
+  }, (html,p) => setStatus(`Scene ${i+1} · `+html, p));
+  sc.state = 'ready'; renderScenes();
+  return r;
+}
+async function viewScene(i){
+  if(busy) return; setBusy(true);
+  try { const r = await processScene(i); setStatus(`<b>Scene ${i+1} ready.</b> ${(count/1e6).toFixed(2)} M particles${r.approx?' · approximate depth':''}.`, 1); }
+  catch(err){ console.error(err); scenes[i].state='err'; setStatus('Could not process: '+esc(err && err.message || err), 0); }
+  setBusy(false); renderScenes();
+}
+$('btnRedo').addEventListener('click', ()=>{ if(current>=0) viewScene(current); });
+
+/* ---------- export ---------- */
+function exportSize(){
+  const r = +$('selRes').value, f = $('selFmt').value, ev = n => Math.max(2, Math.round(n/2)*2);
+  if(f==='v') return [ev(r), ev(r*16/9)];
+  if(f==='h') return [ev(r*16/9), ev(r)];
+  if(f==='s') return [ev(r), ev(r)];
+  const a = innerWidth/innerHeight; return a<1 ? [ev(r), ev(r/a)] : [ev(r*a), ev(r)];
+}
+function exportDuration(sc){
+  if($('selMove').value==='keys' && keys.length>=2) return Math.max(.5, keySpan());
+  const m = $('selDurMode').value;
+  if(sc && m==='scene') return Math.max(1, sc.end-sc.start);
+  if(sc && m==='scene2') return Math.max(1, (sc.end-sc.start)*2);
+  return Q.dur;
+}
+function updateDurNote(){
+  const k = $('selMove').value==='keys';
+  $('durNote').textContent = k ? (keys.length>=2 ? `With keyframes, duration equals the path length: ${keySpan().toFixed(1)} s.` : 'Keyframes selected but there are fewer than two: the current camera is used.') : '';
+}
+$('selMove').addEventListener('change', updateDurNote);
+async function pickCodec(W,H,fps,bitrate){
+  for(const codec of ['avc1.640034','avc1.640033','avc1.640028','avc1.4d0034','avc1.4d0028','avc1.42003e','avc1.42001f']){
+    try { const r = await VideoEncoder.isConfigSupported({codec,width:W,height:H,bitrate,framerate:fps}); if(r && r.supported) return codec; } catch(_){}
+  }
+  return null;
+}
+function setCamFor(time, dur, saved){
+  const mv = $('selMove').value, u = dur>0 ? time/dur : 0;
+  if(mv==='keys' && keys.length>=2){ cam.t = Math.min(1,u); applyUniforms(); keyCamera(time); return; }
+  Object.assign(cam, saved.view);
+  if(mv==='fly') cam.t = u;
+  else if(mv==='orbit') cam.oy = saved.view.oy + u*Math.PI*2;
+  applyUniforms(); orbitCamera();
+}
+async function renderVideo(dur, label){
+  const [W,H] = exportSize(), fps = +$('selFps').value, total = Math.max(1, Math.round(dur*fps));
+  const bitrate = Math.min(60e6, Math.round(W*H*fps*.16));
+  const saved = { view:{t:cam.t, oy:cam.oy, op:cam.op, dist:cam.dist, px:cam.px, py:cam.py, fov:cam.fov}, clock:uniforms.uClock.value, path:pathLine.visible, marks:marks.visible };
+  if(keyPlay) stopKeyPlay();
+  let useWC = typeof VideoEncoder !== 'undefined' && typeof VideoFrame !== 'undefined', codec = null;
+  if(useWC){ codec = await pickCodec(W,H,fps,bitrate); if(!codec) useWC = false; }
+  exporting = true; pathLine.visible = marks.visible = false; guides.visible = false; camHelper.visible = false; camLine.visible = false; renderer.setScissorTest(false);
+  renderer.setPixelRatio(1); renderer.setSize(W,H,false); renderer.setViewport(0,0,W,H);
+  camera.aspect = W/H; camera.updateProjectionMatrix(); uniforms.uScale.value = H*.5;
+  try {
+    if(useWC){
+      if(!window.Mp4Muxer) await loadScript(MUX_URL);
+      const muxer = new Mp4Muxer.Muxer({ target:new Mp4Muxer.ArrayBufferTarget(), video:{codec:'avc', width:W, height:H, frameRate:fps}, fastStart:'in-memory' });
+      let encErr = null;
+      const enc = new VideoEncoder({ output:(chunk,meta)=>muxer.addVideoChunk(chunk,meta), error:e=>{ encErr=e; } });
+      enc.configure({ codec, width:W, height:H, bitrate, framerate:fps, avc:{format:'avc'} });
+      const t0 = performance.now();
+      for(let i=0;i<total;i++){
+        if(encErr) throw encErr;
+        uniforms.uClock.value = saved.clock + i/fps;
+        setCamFor(i/fps, dur, saved);
+        renderer.render(scene,camera);
+        const vf = new VideoFrame(canvas, {timestamp: Math.round(i*1e6/fps), duration: Math.round(1e6/fps)});
+        enc.encode(vf, {keyFrame: i % (fps*2) === 0}); vf.close();
+        while(enc.encodeQueueSize > 4) await wait(4);
+        if(i%3===0){ const el=(performance.now()-t0)/1000, eta=el/(i+1)*(total-i-1); setStatus(`${label}Exporting ${W}×${H} · frame <b>${i+1}/${total}</b> · ~${Math.ceil(eta)} s left`, (i+1)/total); await wait(0); }
+      }
+      await enc.flush(); if(encErr) throw encErr; enc.close();
+      muxer.finalize();
+      return { blob:new Blob([muxer.target.buffer],{type:'video/mp4'}), ext:'mp4', W, H };
+    } else {
+      const types = ['video/mp4;codecs=avc1','video/mp4','video/webm;codecs=vp9','video/webm'];
+      const type = (window.MediaRecorder && types.find(t=>MediaRecorder.isTypeSupported(t)));
+      if(!type || !canvas.captureStream) throw new Error('this browser cannot encode video');
+      const rec = new MediaRecorder(canvas.captureStream(fps), {mimeType:type, videoBitsPerSecond:bitrate});
+      const parts = []; rec.ondataavailable = e => e.data.size && parts.push(e.data);
+      const done = new Promise(r => rec.onstop = r);
+      rec.start(500); const t0 = performance.now();
+      for(;;){ const el=(performance.now()-t0)/1000; if(el>=dur) break;
+        uniforms.uClock.value = saved.clock + el; setCamFor(el, dur, saved); renderer.render(scene,camera);
+        setStatus(`${label}Recording in real time · ${el.toFixed(1)} / ${dur.toFixed(1)} s`, el/dur);
+        await new Promise(r=>requestAnimationFrame(r)); }
+      rec.stop(); await done;
+      return { blob:new Blob(parts,{type:type.split(';')[0]}), ext: type.startsWith('video/mp4') ? 'mp4' : 'webm', W, H };
+    }
+  } finally {
+    exporting = false; Object.assign(cam, saved.view); uniforms.uClock.value = saved.clock; pathLine.visible = saved.path; marks.visible = saved.marks;
+    camera.fov = cam.fov; resize(); syncCamSliders();
+  }
+}
+const results = []; // {name, blob, ext, saved, path}
+function baseName(){ return (vid ? vid.name.replace(/\.[^.]+$/,'') : 'xyzt').replace(/[^\w\-]+/g,'_').slice(0,40) || 'xyzt'; }
+function renderResults(){
+  $('resultsBox').hidden = !results.length;
+  const box = $('results'); box.innerHTML='';
+  results.forEach((r) => {
+    const el = document.createElement('div'); el.className='res';
+    el.innerHTML = `<span>${esc(r.name)} · ${(r.blob.size/1e6).toFixed(1)} MB</span>`;
+    if(isDesk){ const s=document.createElement('span'); s.style.flex='none'; s.style.color='var(--moss)'; s.textContent = r.saved ? 'saved' : 'not saved'; el.appendChild(s); }
+    else { const b=document.createElement('button'); b.type='button'; b.className='small'; b.textContent = r.saved ? 'Saved ✓' : 'Save'; b.addEventListener('click', ()=>saveResult(r)); el.appendChild(b); }
+    box.appendChild(el);
+  });
+  $('btnConcat').hidden = !(isDesk && results.filter(r=>r.saved).length>1);
+}
+async function saveResult(r){
+  try {
+    const out = await backend.save(r.blob, r.name);
+    r.saved = true; r.path = out && out.path;
+    setStatus(isDesk ? `<b>Saved</b> to ${esc(out.path)}` : '<b>Saved.</b>', 1);
+  } catch(e){
+    const c = e && e.code;
+    if(c==='declined') setStatus('Not saved. You can press Save again.', 1);
+    else if(c==='rate_limited') setStatus('A save prompt is already open. Wait a moment.', 1);
+    else if(c==='too_large') setStatus('The file is too large. Try a lower resolution or duration.', 1);
+    else if(c==='unavailable' || !isDesk) setStatus('This view cannot save files. Open the page from claude.ai.', 1);
+    else setStatus('Could not save: '+esc(e && e.message || e), 1);
+  }
+  renderResults();
+}
+let lastVideo = null;
+$('btnExport').addEventListener('click', async () => {
+  if(busy) return; setBusy(true); $('btnSave').hidden = true;
+  try {
+    const sc = current>=0 ? scenes[current] : null;
+    const v = await renderVideo(exportDuration(sc), '');
+    const name = `${baseName()}${sc?'_scene'+(current+1):''}_${Date.now().toString(36)}.${v.ext}`;
+    lastVideo = { ...v, name };
+    if(isDesk){ const r = { name, blob:v.blob, ext:v.ext }; results.push(r); await saveResult(r); }
+    else { $('btnSave').textContent = `Save ${v.ext.toUpperCase()} · ${(v.blob.size/1e6).toFixed(1)} MB`; $('btnSave').hidden = false;
+      setStatus(`<b>Video ready</b> · ${v.W}×${v.H} · ${(v.blob.size/1e6).toFixed(1)} MB. Press Save.`, 1); }
+  } catch(err){ console.error(err); setStatus('Could not export: '+esc(err && err.message || err)+'. Try a lower resolution.', 0); }
+  setBusy(false);
+});
+$('btnSave').addEventListener('click', () => { if(lastVideo) saveResult(lastVideo); });
+
+/* batch: each selected scene → point cloud → MP4 */
+$('btnBatch').addEventListener('click', async () => {
+  if(busy) return;
+  const idx = scenes.map((s,i)=>s.sel?i:-1).filter(i=>i>=0); if(!idx.length) return;
+  batchRunning = true; stopBatch = false; setBusy(true);
+  let ok = 0;
+  for(const i of idx){
+    if(stopBatch) break;
+    try {
+      await processScene(i);
+      const v = await renderVideo(exportDuration(scenes[i]), `Scene ${i+1} · `);
+      const r = { name:`${baseName()}_scene${String(i+1).padStart(2,'0')}.${v.ext}`, blob:v.blob, ext:v.ext, scene:i };
+      results.push(r); scenes[i].state='done'; ok++;
+      if(isDesk) await saveResult(r);
+      renderResults(); renderScenes();
+    } catch(err){ console.error(err); scenes[i].state='err'; renderScenes(); }
+  }
+  batchRunning = false; setBusy(false); renderScenes();
+  setStatus(`<b>${ok} video${ok===1?'':'s'} ready.</b> ${isDesk?'Saved to the output folder.':'Press Save on each one.'}`, 1);
+});
+$('btnStop').addEventListener('click', ()=>{ stopBatch = true; $('btnStop').textContent='Stopping after this scene'; });
+$('btnConcat').addEventListener('click', async () => {
+  if(busy) return; setBusy(true);
+  try { const names = results.filter(r=>r.saved).map(r=>r.name); const res = await desk.concat(names); setStatus(`<b>Joined</b> into ${esc(res.path)}`, 1); }
+  catch(err){ setStatus('Could not join: '+esc(err && err.message || err), 0); }
+  setBusy(false);
+});
+
+/* ---------- startup ---------- */
+async function detectBackend(){
+  try {
+    const ctl = new AbortController(); const to = setTimeout(()=>ctl.abort(), 1500);
+    const r = await fetch('api/info', {cache:'no-store', signal:ctl.signal}); clearTimeout(to);
+    if(r.ok && (r.headers.get('content-type')||'').includes('json')){ const j = await r.json(); if(j.mode==='desktop'){ desk.info=j; return true; } }
+  } catch(_){}
+  return false;
+}
+buildDemo();
+rebuildCurves(); renderKeys(); renderScenes(); updateDurNote(); updateEstimate();
+requestAnimationFrame(loop);
+detectBackend().then(d => {
+  if(d){ isDesk = true; backend = desk; $('modeBadge').textContent = 'Desktop · '+(desk.info.device||'CPU');
+    $('deskModel').hidden = false; $('detFpsBox').hidden = true;
+    $('procNote').textContent = 'Videos are saved to '+desk.info.output+'. The selected model downloads the first time you use it.';
+    Q.frames = 40; Q.def = 160; Q.maxp = 3; ['frames','def','maxp'].forEach(k=>{ const i=$('q_'+k); i && i._sync(); }); updateEstimate(); }
+  setStatus('Open a video: it gets split into scenes and you pick which ones to convert.', 0);
+});
+window.__xyzt = { P, Q, cam, get keys(){return keys;}, get count(){return count;}, get video(){return lastVideo;}, get results(){return results;}, get scenes(){return scenes;}, addKey };
+})();
+</script>
